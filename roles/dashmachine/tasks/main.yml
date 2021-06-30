@@ -1,8 +1,9 @@
+
 #########################################################################
-# Title:            Community: Calibre                                  #
-# Author(s):        Andrew Johnson and SK                               #
+# Title:            Community: DashMachine                              #
+# Author(s):        Jolbol1                                             #
 # URL:              https://github.com/Cloudbox/Community               #
-# Docker Image(s):  linuxserver/calibre                                 #
+# Docker Image(s):  rmountjoy/dashmachine                               #
 # --                                                                    #
 #         Part of the Cloudbox project: https://cloudbox.works          #
 #########################################################################
@@ -13,58 +14,41 @@
   include_role:
     name: cloudflare-dns
   vars:
-    record: calibre
+    record: dashmachine
   when: cloudflare_enabled
 
-- name: Stop and remove any existing container
-  docker_container:
-    name: calibre
-    state: absent
-
-- name: Create htpasswd
-  htpasswd:
-    path: "/opt/nginx-proxy/htpasswd/{{ item }}.{{ user.domain }}"
-    name: "{{ user.name }}"
-    password: "{{ user.pass }}"
-    owner: "{{ user.name }}"
-    group: "{{ user.name }}"
-    mode: 0664
+- name: Stop and remove any existing containers
+  docker_container: "name={{ item }} state=absent"
   with_items:
-    - calibre
-
-- name: Create calibre directories
+    - dashmachine
+    
+- name: Create required directories
   file: "path={{ item }} state=directory mode=0775 owner={{ user.name }} group={{ user.name }}"
   with_items:
-   - /opt/calibre
-   - /mnt/local/Media/Books
+    - /opt/dashmachine/user_data
 
-- name: Create and start container
+- name: Create and start DashMachine container
   docker_container:
-    name: calibre
-    image: linuxserver/calibre
+    name: dashmachine
+    image: "rmountjoy/dashmachine:latest"
     pull: yes
     env:
       TZ: "{{ tz }}"
       PUID: "{{ uid }}"
       PGID: "{{ gid }}"
-      LIBRARYINTERNALPATH: "/library"
-      VIRTUAL_HOST: "calibre.{{ user.domain }}"
-      VIRTUAL_PORT: "8080"
-      LETSENCRYPT_HOST: "calibre.{{ user.domain }}"
+      VIRTUAL_HOST: "{{ dashmachine.subdomain }}.{{ user.domain }}"
+      VIRTUAL_PORT: "5000"
+      LETSENCRYPT_HOST: "{{ dashmachine.subdomain }}.{{ user.domain }}"
       LETSENCRYPT_EMAIL: "{{ user.email }}"
-    volumes:
-      - "/opt/calibre:/config"
-      - "/mnt/unionfs/Media/Books:/library"
-      - "/mnt:/mnt"
+      LOG_LEVEL: DEBUG
     labels:
       "com.github.cloudbox.cloudbox_managed": "true"
+    volumes:
+      - /opt/dashmachine/user_data:/dashmachine/dashmachine/user_data
     networks:
       - name: cloudbox
         aliases:
-          - calibre
-    exposed_ports:
-      - 8080
-      - 8081
+          - dashmachine
     purge_networks: yes
     restart_policy: unless-stopped
     state: started
